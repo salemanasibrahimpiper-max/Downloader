@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader 1080p</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); }
+        .glass-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 1.5rem; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2); }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-pulse { animation: pulse 1.5s cubic-bezier(0.4,0,0.6,1) infinite; }
+        .progress-ring { transition: stroke-dashoffset 0.35s; transform: rotate(-90deg); transform-origin: 50% 50%; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-2xl p-8 text-white">
+        <div class="text-center mb-8">
+            <i class="fab fa-youtube text-6xl text-red-500 mb-4"></i>
+            <h1 class="text-4xl font-bold">YouTube Downloader</h1>
+            <p class="text-gray-300 mt-2">Wähle Qualität – 1080p nur mit Passwort</p>
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-sm font-medium mb-2">YouTube URL</label>
+            <input type="text" id="url" placeholder="https://www.youtube.com/watch?v=..." class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-sm font-medium mb-2">Qualität</label>
+            <select id="quality" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500">
+                <option value="144p">144p</option><option value="240p">240p</option><option value="360p">360p</option>
+                <option value="480p">480p</option><option value="720p" selected>720p</option><option value="1080p">1080p (Premium)</option>
+            </select>
+        </div>
+
+        <div id="passwordContainer" class="mb-6 hidden">
+            <label class="block text-sm font-medium mb-2">Passwort für 1080p</label>
+            <input type="password" id="password" placeholder="Passwort eingeben" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500">
+            <p class="text-xs text-gray-400 mt-1">Frag den Admin nach dem Passwort.</p>
+        </div>
+
+        <button id="downloadBtn" class="w-full bg-red-600 hover:bg-red-700 transition py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
+            <i class="fas fa-download"></i> Download starten
+        </button>
+
+        <div id="progressArea" class="hidden glass-card p-4 mt-6">
+            <div class="flex items-center gap-4">
+                <div class="relative w-16 h-16">
+                    <svg class="w-full h-full" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e7eb" stroke-width="2"></circle>
+                        <circle id="progressCircle" cx="18" cy="18" r="16" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="100" stroke-dashoffset="100" class="progress-ring"></circle>
+                        <text id="progressPercent" x="18" y="22" text-anchor="middle" class="text-xs font-bold fill-white">0%</text>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p id="statusMsg" class="font-medium">Starte...</p>
+                    <p id="videoTitle" class="text-sm text-gray-300 truncate"></p>
+                </div>
+            </div>
+            <div class="mt-3 h-1.5 w-full bg-gray-700 rounded-full overflow-hidden">
+                <div id="progressBar" class="bg-red-500 h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div id="downloadLinkArea" class="hidden mt-4 p-4 bg-green-600/30 rounded-lg border border-green-500 text-center">
+            <i class="fas fa-check-circle text-green-400 text-2xl mb-2"></i>
+            <p class="font-bold">Download bereit!</p>
+            <a id="downloadLink" href="#" class="inline-block mt-2 bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition">Video speichern</a>
+        </div>
+
+        <div id="errorArea" class="hidden mt-4 p-4 bg-red-600/40 rounded-lg border border-red-500 text-center">
+            <i class="fas fa-exclamation-triangle text-red-300 text-2xl mb-2"></i>
+            <p id="errorMsg" class="text-sm"></p>
+        </div>
+    </div>
+
+    <script>
+        const downloadBtn = document.getElementById('downloadBtn');
+        const urlInput = document.getElementById('url');
+        const qualitySelect = document.getElementById('quality');
+        const passwordInput = document.getElementById('password');
+        const passwordContainer = document.getElementById('passwordContainer');
+        const progressArea = document.getElementById('progressArea');
+        const progressBar = document.getElementById('progressBar');
+        const progressCircle = document.getElementById('progressCircle');
+        const progressPercent = document.getElementById('progressPercent');
+        const statusMsg = document.getElementById('statusMsg');
+        const videoTitle = document.getElementById('videoTitle');
+        const downloadLinkArea = document.getElementById('downloadLinkArea');
+        const downloadLink = document.getElementById('downloadLink');
+        const errorArea = document.getElementById('errorArea');
+        const errorMsg = document.getElementById('errorMsg');
+
+        function togglePasswordField() {
+            if (qualitySelect.value === '1080p') passwordContainer.classList.remove('hidden');
+            else passwordContainer.classList.add('hidden');
+        }
+        qualitySelect.addEventListener('change', togglePasswordField);
+        togglePasswordField();
+
+        let currentTaskId = null, pollInterval = null;
+
+        downloadBtn.addEventListener('click', async () => {
+            const url = urlInput.value.trim();
+            if (!url) { showError('Bitte gib eine YouTube-URL ein.'); return; }
+            const quality = qualitySelect.value;
+            let password = '';
+            if (quality === '1080p') {
+                password = passwordInput.value.trim();
+                if (!password) { showError('Für 1080p ist ein Passwort erforderlich.'); return; }
+            }
+            resetUI();
+            showProgress();
+            statusMsg.innerText = 'Starte Download...';
+            videoTitle.innerText = 'Kontaktiere YouTube...';
+
+            const formData = new URLSearchParams();
+            formData.append('url', url);
+            formData.append('quality', quality);
+            formData.append('password', password);
+
+            try {
+                const response = await fetch('/download', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
+                const data = await response.json();
+                if (response.status === 202) { currentTaskId = data.task_id; startPolling(); }
+                else showError(data.error || 'Fehler beim Starten.');
+            } catch (err) { showError('Netzwerkfehler. Ist der Flask-Server gestartet?'); }
+        });
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(async () => {
+                if (!currentTaskId) return;
+                const res = await fetch(`/status/${currentTaskId}`);
+                const status = await res.json();
+                updateUI(status);
+                if (status.status === 'done' || status.status === 'error') {
+                    clearInterval(pollInterval);
+                    if (status.status === 'done') showDownloadLink(status.download_url, status.filename);
+                }
+            }, 1000);
+        }
+
+        function updateUI(status) {
+            if (status.status === 'downloading') {
+                const progress = status.progress;
+                if (typeof progress === 'number' && !isNaN(progress) && progress >= 0) {
+                    progressBar.style.width = `${progress}%`;
+                    progressPercent.innerText = `${progress}%`;
+                    const dashOffset = 100 - progress;
+                    progressCircle.style.strokeDashoffset = dashOffset;
+                    progressBar.classList.remove('animate-pulse', 'bg-yellow-500');
+                } else {
+                    // Unbestimmter Fortschritt (während Merge)
+                    progressBar.style.width = '100%';
+                    progressBar.classList.add('animate-pulse', 'bg-yellow-500');
+                    progressPercent.innerText = '??';
+                    progressCircle.style.strokeDashoffset = '25';
+                }
+                statusMsg.innerText = status.message || 'Verarbeite...';
+                if (status.title) videoTitle.innerText = status.title;
+            } else if (status.status === 'error') {
+                showError(status.message);
+                progressArea.classList.add('hidden');
+            }
+        }
+
+        function showDownloadLink(url, filename) {
+            progressArea.classList.add('hidden');
+            downloadLink.href = url;
+            downloadLink.innerText = `📥 ${filename}`;
+            downloadLinkArea.classList.remove('hidden');
+        }
+
+        function showProgress() {
+            progressArea.classList.remove('hidden');
+            downloadLinkArea.classList.add('hidden');
+            errorArea.classList.add('hidden');
+            progressBar.style.width = '0%';
+            progressBar.classList.remove('animate-pulse', 'bg-yellow-500');
+            progressCircle.style.strokeDashoffset = '100';
+            progressPercent.innerText = '0%';
+        }
+
+        function showError(msg) {
+            errorMsg.innerText = msg;
+            errorArea.classList.remove('hidden');
+            progressArea.classList.add('hidden');
+            downloadLinkArea.classList.add('hidden');
+        }
+
+        function resetUI() {
+            if (pollInterval) clearInterval(pollInterval);
+            currentTaskId = null;
+            errorArea.classList.add('hidden');
+            downloadLinkArea.classList.add('hidden');
+            progressArea.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
