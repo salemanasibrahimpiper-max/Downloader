@@ -37,7 +37,7 @@ def download_video_task(url, quality, password, status_dict, task_id):
 
         status_dict[task_id] = {'status': 'downloading', 'progress': 0, 'message': 'Analysiere...'}
 
-        # Basis-Optionen
+        # Basis-Optionen mit PO-Token Plugin Unterstützung
         ydl_opts = {
             'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
             'progress_hooks': [progress_hook(status_dict, task_id)],
@@ -45,8 +45,13 @@ def download_video_task(url, quality, password, status_dict, task_id):
             'no_warnings': True,
             'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]',
             'merge_output_format': 'mp4',
-            # 👇 Das ist der wichtige Teil für das PO-Token Plugin
             'compat_opts': ['allow-unsafe-extractor-args'],
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android'],  # Android-Client hat weniger Einschränkungen
+                    # Das Plugin wird automatisch die PO-Tokens bereitstellen
+                }
+            }
         }
 
         # Qualität spezifische Format-Auswahl
