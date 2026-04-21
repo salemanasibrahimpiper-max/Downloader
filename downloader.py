@@ -4,7 +4,6 @@ import os
 import re
 import threading
 import uuid
-import imageio_ffmpeg
 
 PASSWORD = "Nigga"
 DOWNLOAD_FOLDER = 'downloads'
@@ -38,38 +37,22 @@ def download_video_task(url, quality, password, status_dict, task_id):
 
         status_dict[task_id] = {'status': 'downloading', 'progress': 0, 'message': 'Analysiere...'}
 
-        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
-
-        # yt-dlp Optionen mit Cookie-Unterstützung
+        # Basis-Optionen
         ydl_opts = {
             'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
             'progress_hooks': [progress_hook(status_dict, task_id)],
             'quiet': True,
             'no_warnings': True,
-            'ffmpeg_location': ffmpeg_path,
-            'cookiefile': 'cookies.txt',  # <-- Cookie-Datei für YouTube
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-            'extractor_args': {
-                'youtube': {
-                    'skip': ['webpage'],  # Umgeht einige Prüfungen
-                }
-            }
+            'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]',
+            'merge_output_format': 'mp4',
+            # 👇 Das ist der wichtige Teil für das PO-Token Plugin
+            'compat_opts': ['allow-unsafe-extractor-args'],
         }
 
         # Qualität spezifische Format-Auswahl
-        if quality == "1080p":
-            # Bevorzuge progressive (falls vorhanden), sonst beste Video+Audio Kombination
-            ydl_opts['format'] = 'best[height<=1080][ext=mp4]/bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]'
-        else:
+        if quality != "1080p":
             height = quality.replace('p', '')
-            ydl_opts['format'] = f'best[height<={height}][ext=mp4]/bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={height}]'
-
-        # Merge-Einstellungen für den Fall, dass progressive nicht verfügbar ist
-        ydl_opts['merge_output_format'] = 'mp4'
-        ydl_opts['postprocessors'] = [{
-            'key': 'FFmpegVideoConvertor',
-            'preferedformat': 'mp4',
-        }]
+            ydl_opts['format'] = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={height}]'
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -84,7 +67,6 @@ def download_video_task(url, quality, password, status_dict, task_id):
                 output_file = os.path.join(DOWNLOAD_FOLDER, f)
                 break
         else:
-            # Fallback: nehme die neueste MP4-Datei
             mp4_files = [os.path.join(DOWNLOAD_FOLDER, f) for f in os.listdir(DOWNLOAD_FOLDER) if f.endswith('.mp4')]
             if mp4_files:
                 output_file = max(mp4_files, key=os.path.getctime)
